@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permitir que usuários autenticados leiam e escrevam seus próprios dados
+    match /indicators/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regras para outras coleções podem ser adicionadas aqui
+    match /{document=**} {
+      allow read, write: if false; // Bloquear tudo por padrão
+    }
+  }
+}
