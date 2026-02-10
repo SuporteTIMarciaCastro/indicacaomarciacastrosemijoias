@@ -14,6 +14,7 @@ export default function RegisterPage() {
     name: "",
     email: "",
     phone: "",
+    cpf: "",
     store: "",
     password: "",
     confirmPassword: "",
@@ -26,6 +27,9 @@ export default function RegisterPage() {
     const { name, value } = e.target;
     if (name === "phone") {
       const formatted = formatPhone(value);
+      setForm((prev) => ({ ...prev, [name]: formatted }));
+    } else if (name === "cpf") {
+      const formatted = formatCPF(value);
       setForm((prev) => ({ ...prev, [name]: formatted }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
@@ -40,11 +44,51 @@ export default function RegisterPage() {
     return value;
   };
 
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+    if (numbers.length <= 11) {
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+    return value;
+  };
+
+  const validateCPF = (cpf: string) => {
+    const numbers = cpf.replace(/\D/g, "");
+    if (numbers.length !== 11) return false;
+    
+    // Verifica se todos os dígitos são iguais
+    if (/^(\d)\1+$/.test(numbers)) return false;
+    
+    // Calcula o primeiro dígito verificador
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(numbers[i]) * (10 - i);
+    }
+    let remainder = (sum * 10) % 11;
+    if (remainder === 10) remainder = 0;
+    if (remainder !== parseInt(numbers[9])) return false;
+    
+    // Calcula o segundo dígito verificador
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(numbers[i]) * (11 - i);
+    }
+    remainder = (sum * 10) % 11;
+    if (remainder === 10) remainder = 0;
+    if (remainder !== parseInt(numbers[10])) return false;
+    
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!form.store) {
       setError("Selecione uma loja.");
+      return;
+    }
+    if (!validateCPF(form.cpf)) {
+      setError("CPF inválido.");
       return;
     }
     if (form.password.length < 6) {
@@ -58,6 +102,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const cleanPhone = form.phone.replace(/\D/g, "");
+      const cleanCPF = form.cpf.replace(/\D/g, "");
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,6 +110,7 @@ export default function RegisterPage() {
           name: form.name,
           email: form.email,
           phone: cleanPhone,
+          cpf: cleanCPF,
           store: form.store,
           password: form.password,
         }),
@@ -180,6 +226,20 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="(XX) XXXXX-XXXX"
                   required
+                  className="border-red-200 focus:border-red-500"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cpf">CPF</Label>
+                <Input
+                  id="cpf"
+                  name="cpf"
+                  type="text"
+                  value={form.cpf}
+                  onChange={handleChange}
+                  placeholder="000.000.000-00"
+                  required
+                  maxLength={14}
                   className="border-red-200 focus:border-red-500"
                 />
               </div>

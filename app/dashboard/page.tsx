@@ -188,14 +188,18 @@ function DashboardContent() {
             {/* Ícone do cofre/cadeado com animação */}
             <div className="mb-2 flex justify-center">
                 {activatedCount < 5 ? (
-                <div className="relative inline-block">
+                <div className="relative w-12 h-12 flex items-center justify-center">
                   <Shield className="w-12 h-12 text-gray-400" />
-                  <Lock className="w-5 h-5 text-red-500 absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <Lock className="w-5 h-5 text-red-500" />
+                  </div>
                 </div>
               ) : (
-                <div className="relative inline-block">
+                <div className="relative w-12 h-12 flex items-center justify-center">
                   <Shield className="w-12 h-12 text-yellow-500 animate-pulse" />
-                  <Unlock className="w-5 h-5 text-green-600 absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-bounce" />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <Unlock className="w-5 h-5 text-green-600 animate-bounce" />
+                  </div>
                 </div>
               )}
             </div>
@@ -280,7 +284,7 @@ function DashboardContent() {
                   <div className="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
                   <div>
                     <h4 className="font-semibold text-gray-900">Cadastro</h4>
-                    <p className="text-gray-600 text-sm">O indicado deve se cadastrar através do link fornecido pelo indicador. O indicado também receberá um voucher exclusivo ao se cadastrar.</p>
+                    <p className="text-gray-600 text-sm">O indicado deve se cadastrar através do link fornecido pelo indicador. O indicado também receberá um presente surpresa ao se cadastrar.</p>
                   </div>
                 </div>
                 
@@ -288,7 +292,7 @@ function DashboardContent() {
                   <div className="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
                   <div>
                     <h4 className="font-semibold text-gray-900">Ativação</h4>
-                    <p className="text-gray-600 text-sm">Após o cadastro, o Check bônus é ativado automaticamente e enviado por email.</p>
+                    <p className="text-gray-600 text-sm">Após a verficação dos indicados, o Cupom do indicador é ativado automaticamente e enviado por email cadastrado, ou disponível para visualização no painel do usuário.</p>
                   </div>
                 </div>
                 

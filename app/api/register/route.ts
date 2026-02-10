@@ -11,15 +11,40 @@ function generatePassword(length = 10) {
   return pass;
 }
 
+function formatCPF(cpf: string): string {
+  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, phone, store, password } = await req.json();
-    if (!name || !email || !phone || !store || !password) {
+    const { name, email, phone, cpf, store, password } = await req.json();
+    if (!name || !email || !phone || !cpf || !store || !password) {
       return NextResponse.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
     }
     if (password.length < 6) {
       return NextResponse.json({ error: "A senha deve ter pelo menos 6 caracteres." }, { status: 400 });
     }
+
+    // Validar CPF na base de dados via webhook
+    try {
+      const cpfValidationResponse = await fetch(process.env.WEBHOOK_VALIDATION_CPF!, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ CPF: formatCPF(cpf) }),
+      });
+
+      if (!cpfValidationResponse.ok) {
+        return NextResponse.json({ error: "Erro ao verificar CPF. Tente novamente." }, { status: 400 });
+      }
+
+      const cpfData = await cpfValidationResponse.json();
+      if (!cpfData.resultado) {
+        return NextResponse.json({ error: "CPF inválido ou não encontrado na base de dados. Use o CPF que você cadastrou ao realizar a compra." }, { status: 400 });
+      }
+    } catch (err) {
+      return NextResponse.json({ error: "Erro ao verificar CPF." }, { status: 500 });
+    }
+
     // Cria usuário no Auth
     const userRecord = await adminAuth.createUser({
       email,
@@ -32,6 +57,7 @@ export async function POST(req: NextRequest) {
       name,
       email,
       phone,
+      cpf,
       store,
       uid: userRecord.uid,
       password,

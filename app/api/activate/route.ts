@@ -81,6 +81,44 @@ async function sendVoucherEmail({ to, name, code, voucherId }: { to: string; nam
   await transporter.sendMail(mailOptions)
 }
 
+// Função para enviar email de prêmio desbloqueado para o indicador
+async function sendIndicatorPrizeEmail({ to, name }: { to: string; name: string }) {
+  console.log(`Tentando enviar email para ${to} com nome ${name}`)
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  })
+
+  const dashboardLink = `${process.env.NEXT_PUBLIC_VOUCHER_DOMAIN}/dashboard`
+
+  const mailOptions = {
+    from: `Marcia Castro Semijoias <${process.env.GMAIL_USER}>`,
+    to,
+    subject: "🎊🎊🎊 COFRE DESBLOQUEADO! 🎊🎊🎊",
+    html: `
+      <div style="font-family: Arial, sans-serif; background: #fff; padding: 24px; border-radius: 8px; max-width: 480px; margin: auto; text-align: center;">
+        <h1 style="color: #b91c1c; font-size: 28px;">🎊🎊🎊 COFRE DESBLOQUEADO! 🎊🎊🎊</h1>
+        <h2 style="color: #333;">PARABÉNS, ${name}!</h2>
+        <p style="font-size: 18px; margin: 20px 0;">Você CONSEGUIU! 5 amigas verificadas! 🎉</p>
+        <p style="font-size: 20px; margin: 20px 0; color: #b91c1c;"><strong>Seu VOUCHER de R$100 tá PRONTO! 💰</strong></p>
+        <p style="margin: 24px 0;">
+          <a href="${dashboardLink}" style="display:inline-block;padding:12px 24px;background:#b91c1c;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;">👉 Clica aqui pra ver: [LINK DO VOUCHER]</a>
+        </p>
+        <p style="font-size: 16px; margin: 20px 0;">Agora vem pra QUALQUER loja nossa e escolhe o que quiser!</p>
+        <p style="font-size: 18px; margin: 20px 0; color: #b91c1c;"><strong>VOCÊ ESCOLHE! 😍</strong></p>
+        <p style="margin: 20px 0;">Válido em todas as nossas lojas!</p>
+        <p style="margin: 20px 0;">Te esperamos! 💕</p>
+        <p style="font-size: 14px; color: #888; margin: 20px 0;"><em>Obs: Trouxe as amigas junto? Melhor ainda! 😉</em></p>
+      </div>
+    `,
+  }
+
+  await transporter.sendMail(mailOptions)
+}
+
 // Função para formatar o número de telefone
 function formatPhoneNumber(phone: string): string {
   // Remove todos os caracteres especiais (parênteses, espaços, hífens)
@@ -287,6 +325,7 @@ export async function POST(request: NextRequest) {
           quantIndicadosAtivados: 1,
           createdAt: new Date().toISOString()
         })
+        console.log(`Novo blogger ${bloggerId} criado com quantIndicadosAtivados: 1`)
         // Se a primeira ativação já alcança a meta (1 >= 5) não faz sentido, então não envia
         return false
       }
@@ -299,12 +338,15 @@ export async function POST(request: NextRequest) {
         quantIndicadosAtivados: FieldValue.increment(1)
       })
 
+      console.log(`Blogger ${bloggerId}: contador atual ${current}, novo contador ${newCount}, webhookIndicadoresSent: ${data.webhookIndicadoresSent}`)
+
       // Se atingiu 5 ou mais e ainda não enviamos o webhook, marcar e retornar true
       if (newCount >= 5 && !data.webhookIndicadoresSent) {
         tx.update(bloggerRef, {
           webhookIndicadoresSent: true,
           webhookIndicadoresSentAt: new Date().toISOString()
         })
+        console.log(`Blogger ${bloggerId} atingiu meta de 5 indicados, marcando para enviar webhook e email`)
         return true
       }
 
@@ -316,7 +358,25 @@ export async function POST(request: NextRequest) {
       try {
         const updatedBloggerSnap = await bloggerRef.get()
         const bloggerData = updatedBloggerSnap.exists ? updatedBloggerSnap.data() : {}
+        console.log(`Enviando webhook para blogger ${bloggerId}`)
         await sendIndicatorWebhook(bloggerId, bloggerData)
+        
+        // Buscar dados pessoais do indicador na coleção "indicators"
+        const indicatorRef = adminDb.collection("indicators").doc(bloggerId)
+        const indicatorSnap = await indicatorRef.get()
+        const indicatorData = indicatorSnap.exists ? indicatorSnap.data() : {}
+        
+        // Enviar email de prêmio desbloqueado se o indicador tiver email e nome
+        if (indicatorData?.email && indicatorData?.name) {
+          console.log(`Enviando email de prêmio para ${indicatorData.email} (${indicatorData.name})`)
+          await sendIndicatorPrizeEmail({
+            to: indicatorData.email,
+            name: indicatorData.name
+          })
+          console.log(`Email de prêmio enviado com sucesso para ${indicatorData.email}`)
+        } else {
+          console.warn(`Indicador ${bloggerId} não tem email ou nome configurados na coleção indicators: email=${indicatorData?.email}, name=${indicatorData?.name}`)
+        }
       } catch (err) {
         console.error('Erro ao enviar webhook de indicador:', err)
       }
