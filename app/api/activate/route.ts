@@ -67,7 +67,7 @@ async function sendVoucherEmail({ to, name, code, voucherId }: { to: string; nam
         <p style="font-size: 18px; margin: 24px 0;">
           <strong style="color: #b91c1c; font-size: 32px; letter-spacing: 2px;">${code}</strong>
         </p>
-        <p>Use este código para ganhar <b>Uma semijoia surpresa</b> em compras acima de <b>R$ 100</b> na Marcia Castro Semijoias.</p>
+        <p>Use este código para ganhar <b>R$ 50,00 de desconto</b> em compras acima de <b>R$ 150,00</b> na Marcia Castro Semijoias.</p>
         <p style="margin-top: 24px;">
           <a href="${voucherLink}" style="display:inline-block;padding:12px 24px;background:#b91c1c;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Acessar meu voucher</a>
         </p>
@@ -241,63 +241,83 @@ async function sendIndicatorWebhook(bloggerId: string, bloggerData: any) {
   }
 }
 
+// Função para criar cupons na Nuvemshop
+async function createNuvemshopCoupon({
+  code,
+  value,
+  minPrice,
+  context,
+}: {
+  code: string
+  value: string
+  minPrice: number
+  context: string
+}) {
+  const apiUrl = process.env.NUVEMSHOP_API_URL
+  const storeId = process.env.NUVEMSHOP_STORE_ID
+  const appToken = process.env.NUVEMSHOP_TOKEN
+  const appId = process.env.NUVEMSHOP_USER_ID
+
+  if (!apiUrl || !storeId || !appToken || !appId) {
+    throw new Error("Configuração da Nuvemshop incompleta")
+  }
+
+  const endpoint = `${apiUrl}/2025-03/${storeId}/coupons`
+  const payload = {
+    code,
+    type: "absolute",
+    value,
+    max_uses: 1,
+    min_price: minPrice,
+    first_consumer_purchase: true,
+    categories: null,
+    includes_shipping: true,
+  }
+
+  console.log(`Criando cupom na Nuvemshop (${context}): ${code}`)
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authentication: `bearer ${appToken}`,
+      "User-Agent": `Plataforma Indicacao (${appId})`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Falha ao criar cupom na Nuvemshop (${context}): ${response.status} ${response.statusText} - ${errorText}`)
+  }
+
+  console.log(`Cupom ${code} criado com sucesso na Nuvemshop (${context})`)
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { customerName, customerEmail, customerPhone, bloggerId, qrCode, store } = await request.json()
+    const { customerName, customerEmail, customerPhone, bloggerId } = await request.json()
     if (!customerName || !customerEmail || !customerPhone || !bloggerId) {
       return NextResponse.json({ error: "Dados obrigatórios não informados." }, { status: 400 })
     }
 
-    // Se qrCode fornecido, validar antes de criar voucher
-    let validStore: string | undefined
-    if (qrCode) {
-      if (!store) {
-        return NextResponse.json({ error: "Loja é obrigatória quando QR Code é fornecido" }, { status: 400 })
-      }
+    const code = generateVoucherCode()
 
-      const docRef = adminDb.collection("qrcodes").doc("store_qrcodes")
-      const docSnap = await docRef.get()
-      
-      if (!docSnap.exists) {
-        return NextResponse.json({ error: "QR Code inválido" }, { status: 400 })
-      }
-
-      const qrData = docSnap.data()
-      
-      // Mapear o nome da loja para o campo no documento
-      const storeFieldMap: { [key: string]: string } = {
-        "loja Shopping Teresina": "lojaTeresina",
-        "loja Shopping Rio Poty": "lojaRioPoty",
-        "loja Shopping Cocais": "lojaCocais",
-        "loja Shopping Parnaiba": "lojaParnaiba",
-        "loja Shopping Rio Anil": "lojaRioAnil"
-      }
-
-      const storeField = storeFieldMap[store]
-      if (!storeField) {
-        return NextResponse.json({ error: "Loja inválida" }, { status: 400 })
-      }
-
-      // Verificar se o código corresponde à loja selecionada
-      const storeCode = qrData?.[storeField]
-      if (!storeCode || storeCode !== qrCode) {
-        return NextResponse.json({ error: "QR Code inválido para esta loja" }, { status: 400 })
-      }
-
-      validStore = storeField
-
-      // Atualizar contador de uso da loja específica
-      const usageField = `${storeField}Usage`
-      const currentUsage = qrData[usageField] || 0
-      
-      await docRef.update({
-        [usageField]: currentUsage + 1,
-        lastUsed: new Date(),
-        lastUsedBy: storeField
+    // Criar cupom do indicado na Nuvemshop com o mesmo código do voucher
+    try {
+      await createNuvemshopCoupon({
+        code,
+        value: "50.00",
+        minPrice: 150,
+        context: "voucher do indicado",
       })
+    } catch (error) {
+      console.error("Erro ao criar cupom do indicado na Nuvemshop:", error)
+      return NextResponse.json(
+        { error: "Não foi possível criar o cupom de desconto no momento. Tente novamente." },
+        { status: 502 }
+      )
     }
 
-    const code = generateVoucherCode()
     const docRef = await adminDb.collection("vouchers").add({
       code,
       ativado: true,
@@ -307,7 +327,6 @@ export async function POST(request: NextRequest) {
       customerPhone,
       bloggerId,
       createdAt: new Date().toISOString(),
-      ...(qrCode && validStore && { qrCodeId: "store_qrcodes", store: validStore })
     })
     
     // Atualizar o contador de vouchers do indicador
@@ -360,6 +379,12 @@ export async function POST(request: NextRequest) {
         const bloggerData = updatedBloggerSnap.exists ? updatedBloggerSnap.data() : {}
         console.log(`Enviando webhook para blogger ${bloggerId}`)
         await sendIndicatorWebhook(bloggerId, bloggerData)
+        await createNuvemshopCoupon({
+          code,
+          value: "100",
+          minPrice: 0,
+          context: "recompensa do indicador",
+        })
         
         // Buscar dados pessoais do indicador na coleção "indicators"
         const indicatorRef = adminDb.collection("indicators").doc(bloggerId)
@@ -390,8 +415,6 @@ export async function POST(request: NextRequest) {
       customerEmail,
       customerPhone,
       bloggerId,
-      store: validStore,
-      qrCode
     })
     
     await sendVoucherEmail({

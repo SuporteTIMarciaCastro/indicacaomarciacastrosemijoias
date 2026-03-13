@@ -155,29 +155,29 @@ export default function VoucherPage() {
             <h3 className="font-bold text-red-700 mb-3">Como usar seu cupom:</h3>
             <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
               <li>
-                Vá até uma loja mais próxima.
-              </li>
-              {/* <li>
-                Dirija-se ao caixa da loja participante.
+                Acesse nosso ecommerce oficial: <a href="https://marciacastrosemijoias.com.br" target="_blank" rel="noopener noreferrer" className="text-red-700 font-semibold underline">marciacastrosemijoias.com.br</a>
               </li>
               <li>
-                Apresente o código do seu cupom
-              </li> */}
+                Escolha seus produtos e aplique o código do cupom no checkout.
+              </li>
               <li>
                 Aproveite os descontos exclusivos:
                 <ul className="mt-2 ml-5 list-disc text-gray-800 space-y-1">
                   <li>
-                    <span className="font-bold text-red-700">Uma Semijoias surpresa</span> em compras acima de <span className="font-semibold">R$ 100,00</span>
+                    <span className="font-bold text-red-700">R$ 50,00 de desconto</span> em compras acima de <span className="font-semibold">R$ 150,00</span>
                   </li>
-                  {/* <li>
-                    <span className="font-bold text-red-700">R$ 100,00</span> de desconto em compras acima de <span className="font-semibold">R$ 400,00</span>
-                  </li>
-                  <li>
-                    <span className="font-bold text-red-700">R$ 200,00</span> de desconto em compras acima de <span className="font-semibold">R$ 600,00</span>
-                  </li> */}
                 </ul>
               </li>
             </ol>
+
+            <div className="mt-4 p-3 bg-white border border-red-100 rounded-lg space-y-2">
+              <p className="text-xs text-gray-700">
+                Atendimento online: <a href="https://api.whatsapp.com/send/?phone=5586998002421&text=Ol%C3%A1!%20Fa%C3%A7o%20parte%20do%20plano%20de%20indica%C3%A7%C3%A3o%20e%20gostaria%20de%20saber%20mais%20informa%C3%A7%C3%B5es!" target="_blank" rel="noopener noreferrer" className="text-red-700 font-semibold underline">WhatsApp oficial</a>
+              </p>
+              <p className="text-xs text-gray-700">
+                Siga no Instagram: <a href="https://www.instagram.com/marciacastrosemijoias" target="_blank" rel="noopener noreferrer" className="text-red-700 font-semibold underline">@marciacastrosemijoias</a>
+              </p>
+            </div>
 
             <div className="mt-4 p-3 bg-red-50 rounded-lg">
               <p className="text-xs text-red-700">

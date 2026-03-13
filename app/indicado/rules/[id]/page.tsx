@@ -1,21 +1,111 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Gift, Sparkles, Users, MapPin, QrCode } from "lucide-react"
+import { CheckCircle2, ExternalLink, Gift, Instagram, Sparkles, Users } from "lucide-react"
 import Image from "next/image"
 
 export default function RulesPage() {
   const [loading, setLoading] = useState(false)
+  const [confirmingFollow, setConfirmingFollow] = useState(false)
+  const [hasOpenedInstagram, setHasOpenedInstagram] = useState(false)
+  const [isFollowingConfirmed, setIsFollowingConfirmed] = useState(false)
+  const [followMessage, setFollowMessage] = useState<string | null>(null)
+  const [followError, setFollowError] = useState<string | null>(null)
   const params = useParams<{ id: string }>()
   const bloggerId = params?.id
   const router = useRouter()
+  const instagramProfileUrl = "https://www.instagram.com/marciacastrosemijoias/"
+
+  useEffect(() => {
+    if (!bloggerId) return
+    const confirmedStorageKey = `ig_follow_confirmed_${bloggerId}`
+    const openedStorageKey = `ig_follow_opened_${bloggerId}`
+    const alreadyConfirmed = typeof window !== "undefined" ? localStorage.getItem(confirmedStorageKey) : null
+    const alreadyOpened = typeof window !== "undefined" ? localStorage.getItem(openedStorageKey) : null
+
+    if (alreadyOpened === "true") {
+      setHasOpenedInstagram(true)
+    }
+
+    if (alreadyConfirmed === "true") {
+      setIsFollowingConfirmed(true)
+      setHasOpenedInstagram(true)
+      setFollowMessage("Seguimento já confirmado neste dispositivo.")
+    }
+  }, [bloggerId])
+
+  const handleOpenInstagram = () => {
+    setFollowError(null)
+    setFollowMessage("Abrimos o Instagram em uma nova aba. Siga o perfil e volte para confirmar.")
+    if (bloggerId) {
+      localStorage.setItem(`ig_follow_opened_${bloggerId}`, "true")
+    }
+    setHasOpenedInstagram(true)
+    window.open(instagramProfileUrl, "_blank", "noopener,noreferrer")
+  }
+
+  const getOrCreateSessionId = () => {
+    const storageKey = "indicado_follow_session_id"
+    const existing = localStorage.getItem(storageKey)
+    if (existing) return existing
+
+    const generated = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+
+    localStorage.setItem(storageKey, generated)
+    return generated
+  }
+
+  const handleConfirmFollow = async () => {
+    setFollowError(null)
+    setFollowMessage(null)
+
+    if (!bloggerId) {
+      setFollowError("Não foi possível validar o seguidor. Link do indicador inválido.")
+      return
+    }
+
+    setConfirmingFollow(true)
+    try {
+      const sessionId = getOrCreateSessionId()
+      const response = await fetch("/api/indicado/instagram-follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bloggerId,
+          sessionId,
+          instagramProfile: instagramProfileUrl,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        setFollowError(data.error || "Não foi possível confirmar o seguimento agora. Tente novamente.")
+        return
+      }
+
+      localStorage.setItem(`ig_follow_confirmed_${bloggerId}`, "true")
+      setIsFollowingConfirmed(true)
+      setFollowMessage(data.message || "Confirmação registrada com sucesso.")
+    } catch (error) {
+      setFollowError("Erro de conexão ao registrar confirmação. Tente novamente.")
+    } finally {
+      setConfirmingFollow(false)
+    }
+  }
 
   const handleContinue = () => {
+    if (!isFollowingConfirmed) {
+      setFollowError("Antes de continuar, confirme que está seguindo o Instagram da empresa.")
+      return
+    }
+
     setLoading(true)
-    router.push(`/indicado/scan/${bloggerId}`)
+    router.push(`/activate?indicador=${bloggerId}`)
   }
 
   return (
@@ -50,50 +140,61 @@ export default function RulesPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <MapPin className="text-red-600 mt-1" size={20} />
+                <Gift className="text-red-600 mt-1" size={20} />
                 <div>
-                  <h3 className="font-semibold text-gray-900">2. Visita à Loja</h3>
-                  <p className="text-gray-600 text-sm">Para validar sua participação, você deve visitar uma de nossas lojas físicas.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <QrCode className="text-red-600 mt-1" size={20} />
-                <div>
-                  <h3 className="font-semibold text-gray-900">3. Validação QR Code</h3>
-                  <p className="text-gray-600 text-sm">Na loja, solicite ao atendente para escanear o código QR disponível no sistema.</p>
+                  <h3 className="font-semibold text-gray-900">2. Cadastro</h3>
+                  <p className="text-gray-600 text-sm">Preencha seus dados para ativar seu check bônus.</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
                 <Gift className="text-red-600 mt-1" size={20} />
                 <div>
-                  <h3 className="font-semibold text-gray-900">4. Cadastro</h3>
-                  <p className="text-gray-600 text-sm">Após a validação, complete seu cadastro.</p>
-                </div>
-              </div>
-
-                <div className="flex items-start gap-3">
-                <Gift className="text-red-600 mt-1" size={20} />
-                <div>
-                  <h3 className="font-semibold text-gray-900">5. Cupom</h3>
-                  <p className="text-gray-600 text-sm">ganhe uma semijoia surpresa em compras acima de R$100,00.</p>
+                  <h3 className="font-semibold text-gray-900">3. Cupom</h3>
+                  <p className="text-gray-600 text-sm">Ganhe R$ 50,00 de desconto em compras acima de R$ 150,00.</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-800 text-sm font-medium">
-                <strong>Importante:</strong> A validação física é necessária para garantir a autenticidade da indicação e prevenir fraudes.
-              </p>
+            <div className="bg-white/95 border border-red-100 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-semibold text-red-800">Siga nosso Instagram para liberar o cadastro</p>
+              <p className="text-xs text-gray-600">Para participar da campanha, siga o perfil oficial e confirme abaixo.</p>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  onClick={handleOpenInstagram}
+                  className="bg-pink-600 hover:bg-pink-700 text-white"
+                >
+                  <Instagram size={16} className="mr-2" />
+                  Seguir no Instagram
+                  <ExternalLink size={14} className="ml-2" />
+                </Button>
+
+                {hasOpenedInstagram && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleConfirmFollow}
+                    disabled={confirmingFollow || isFollowingConfirmed}
+                    className="border-red-300 text-red-700"
+                  >
+                    <CheckCircle2 size={16} className="mr-2" />
+                    {isFollowingConfirmed ? "Seguimento confirmado" : confirmingFollow ? "Confirmando..." : "Já estou seguindo"}
+                  </Button>
+                )}
+              </div>
+
+              {followMessage && <p className="text-xs text-green-700">{followMessage}</p>}
+              {followError && <p className="text-xs text-red-700">{followError}</p>}
             </div>
 
             <Button
               onClick={handleContinue}
               className="w-full bg-red-600 hover:bg-red-700 text-white"
-              disabled={loading}
+              disabled={loading || !isFollowingConfirmed}
             >
-              {loading ? "Carregando..." : "Continuar para Validação"}
+              {loading ? "Carregando..." : "Continuar para Cadastro"}
             </Button>
           </CardContent>
         </Card>

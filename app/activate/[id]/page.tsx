@@ -24,7 +24,6 @@ export default function ActivatePage() {
   const [voucherChecked, setVoucherChecked] = useState(false)
   const searchParams = useSearchParams();
   const bloggerId = searchParams.get("indicador");
-  const storeParam = searchParams.get("loja");
 
   useEffect(() => {
     const checkVoucher = async () => {
@@ -35,18 +34,6 @@ export default function ActivatePage() {
         if (response.ok) {
           if (data.ativado) {
             router.replace(`/voucher/${voucherId}`);
-            return;
-          }
-        } else {
-          // Verificar se é um QR code válido para novo fluxo
-          const qrResponse = await fetch('/api/qrcode/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ qrCode: voucherId, store: storeParam })
-          });
-          if (!qrResponse.ok) {
-            setError("Código inválido. Verifique o link ou solicite um novo código na loja.");
-            setVoucherChecked(true);
             return;
           }
         }
@@ -82,6 +69,14 @@ export default function ActivatePage() {
       setLoading(false);
       return;
     }
+
+    const phoneNumbersOnly = formData.phone.replace(/\D/g, "")
+    if (phoneNumbersOnly.length !== 11) {
+      setError("O celular deve conter exatamente 11 dígitos (incluindo DDD).")
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch(`/api/activate`, {
         method: "POST",
@@ -91,8 +86,6 @@ export default function ActivatePage() {
           customerPhone: formData.phone,
           customerEmail: formData.email,
           bloggerId,
-          qrCode: voucherId,
-          store: storeParam,
         }),
       });
       const data = await response.json();
